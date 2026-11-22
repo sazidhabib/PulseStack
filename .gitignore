@@ -1,8 +1,6 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
+# Dependencies
+node_modules/
+.pnp/
 .pnp.*
 .yarn/*
 !.yarn/patches
@@ -10,39 +8,60 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
+# Next.js & Build Outputs
+.next/
+out/
+build/
+dist/
 
-# next.js
-/.next/
-/out/
-
-# production
-/build
-
-# misc
-.DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# local env files
-.env*.local
-.env
-
-# vercel
-.vercel
-
-# typescript
+# Turbo & Tooling Caches
+.turbo/
+.cache/
+.eslintcache/
+.swc/
 *.tsbuildinfo
 next-env.d.ts
 
-# cache
-.cache
-.eslintcache
-.turbo
-.swc
+# Testing & Coverage
+coverage/
+test-results/
+playwright-report/
+blob-report/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment Variables (Keep .env.example tracked)
+.env
+.env.*
+.env*.local
+!.env.example
+
+# Vercel
+.vercel/
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+*.pem
+
+# IDE & Editor Files
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Local Docker / Database data directories
+pgdata/
+redisdata/
+data/

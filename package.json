@@ -1,0 +1,20 @@
+{
+  "name": "pulsestack",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@12.21.0",
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "test": "turbo test",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "db:generate": "pnpm --filter @pulsestack/db db:generate",
+    "db:migrate": "pnpm --filter @pulsestack/db db:migrate",
+    "db:studio": "pnpm --filter @pulsestack/db db:studio"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.4",
+    "typescript": "^5.8.2"
+  }
+}
