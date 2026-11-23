@@ -7,18 +7,27 @@
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "next lint",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@hookform/resolvers": "^7.0.8",
     "@pulsestack/shared": "workspace:*",
+    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.479.0",
     "next": "16.2.9",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "tailwind-merge": "^3.0.2"
+    "react-hook-form": "^7.92.0",
+    "recharts": "^3.11.0",
+    "sonner": "^2.0.8",
+    "tailwind-merge": "^3.0.2",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@pulsestack/tsconfig": "workspace:*",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^22.13.9",
@@ -27,6 +36,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
-    "typescript": "^5.8.2"
+    "typescript": "^5.8.2",
+    "vitest": "^3.2.7"
   }
 }

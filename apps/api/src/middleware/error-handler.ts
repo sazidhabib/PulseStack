@@ -21,11 +21,14 @@ export function errorHandler(
   // Handle generic / unexpected server errors
   console.error(`[UNHANDLED ERROR] ${req.method} ${req.path}:`, err);
 
+  const isDev = process.env.NODE_ENV !== 'production';
+
   return res.status(500).json({
     success: false,
     error: {
       code: 'INTERNAL_ERROR',
-      message: 'An unexpected internal error occurred',
+      message: isDev ? err.message || 'An unexpected internal error occurred' : 'An unexpected internal error occurred',
+      details: isDev ? (err as any).stack : undefined,
     },
   });
 }

@@ -11,6 +11,10 @@
     "typecheck": "turbo typecheck",
     "db:generate": "pnpm --filter @pulsestack/db db:generate",
     "db:migrate": "pnpm --filter @pulsestack/db db:migrate",
+    "db:push": "pnpm --filter @pulsestack/db db:push",
+    "db:seed": "pnpm --filter @pulsestack/db db:seed",
+    "seed": "pnpm --filter @pulsestack/db db:seed",
+    "test:e2e": "pnpm --filter @pulsestack/web test:e2e",
     "db:studio": "pnpm --filter @pulsestack/db db:studio"
   },
   "devDependencies": {
