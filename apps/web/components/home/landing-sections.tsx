@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   CheckCircle2,
   Clock,
+  Eye,
   Lock,
   Radio,
   ShieldCheck,
@@ -17,31 +18,55 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DemoLaunchButton } from '@/components/home/demo-launch-button';
+import {
+  BenefitVisualCanvas,
+  ProblemSolutionSceneCanvas,
+  WorkflowScrollCanvas,
+  type BenefitVisualKind,
+  type ProblemSolutionVariant,
+} from '@/components/home/scroll-story-canvases';
+import { useScrollProgress } from '@/hooks/use-scroll-progress';
 
-const PROBLEM_SOLUTIONS = [
+const PROBLEM_SOLUTIONS: Array<{
+  variant: ProblemSolutionVariant;
+  ariaLabel: string;
+  problemTitle: string;
+  problemDesc: string;
+  solutionTitle: string;
+  solutionDesc: string;
+}> = [
   {
+    variant: 'radar',
+    ariaLabel:
+      '2D Canvas comparison between unseen overnight 503 downtime and PulseStack 60-second radar sweep detection',
     problemTitle: 'Silent API Downtime',
     problemDesc:
-      'Endpoints stall or return 5xx errors overnight, and your team only finds out when customers report broken checkouts.',
-    solutionTitle: 'Scheduled BullMQ Health Pings',
+      'Endpoints fail overnight with 5xx errors and customers report broken flows before anyone checks logs.',
+    solutionTitle: 'Scheduled 60s BullMQ Radar',
     solutionDesc:
-      'Repeatable background workers probe every service every 60s, 300s, or 900s with strict abort timeouts and sub-millisecond timing.',
+      'Repeatable background workers ping every endpoint on schedule with abort timeouts and instant status alerts.',
   },
   {
-    problemTitle: 'Stale Dashboards & Heavy Polling',
+    variant: 'pubsub',
+    ariaLabel:
+      '2D Canvas comparison between database-straining client polling and PulseStack Redis Pub/Sub WebSocket fan-out',
+    problemTitle: 'Stale Dashboards & Polling Load',
     problemDesc:
-      'Refreshing dashboards or hammering PostgreSQL from client tabs wastes database connections and hides sudden latency spikes.',
+      'Tab refreshes and redundant polling hammer your database while hiding short latency spikes.',
     solutionTitle: 'Redis Pub/Sub to WebSocket Stream',
     solutionDesc:
-      'Workers publish results to Redis channels, pushing live uptime changes, latency sparklines, and incident alerts straight to the browser.',
+      'Workers publish each result once to Redis, pushing live latency and uptime updates to every connected screen.',
   },
   {
+    variant: 'isolation',
+    ariaLabel:
+      '2D Canvas comparison between mixed tenant data leaks and PulseStack strict orgId isolation with HMAC-SHA256 webhooks',
     problemTitle: 'Spoofed Alerts & Tenant Leaks',
     problemDesc:
-      'Unverified webhooks can be forged by attackers, and missing org checks risk exposing another customer’s telemetry.',
+      'Unsigned webhooks can be forged and missing tenant boundaries risk leaking another org’s telemetry.',
     solutionTitle: 'HMAC-SHA256 & Row-Level orgId Scope',
     solutionDesc:
-      'Every webhook carries a cryptographic X-Pulse-Signature with exponential retry backoff, and every DB query and WS room is isolated by orgId.',
+      'Every webhook carries an X-Pulse-Signature with retry backoff, and all DB queries and WS rooms isolate by orgId.',
   },
 ];
 
@@ -50,7 +75,7 @@ const WORKFLOW_STEPS = [
     step: '01',
     title: 'Register Endpoint & Interval',
     summary:
-      'Add your HTTP/S URL, method, expected status code, and repeatable check cadence (60s, 300s, or 900s).',
+      'Set target URL, HTTP method, expected status code, and repeatable check cadence (60s, 300s, or 900s).',
     badge: 'Monitor Configuration',
     codeTitle: 'POST /api/monitors',
     codeLines: [
@@ -67,7 +92,7 @@ const WORKFLOW_STEPS = [
     step: '02',
     title: 'Workers Ping & Stream Live',
     summary:
-      'BullMQ workers execute isolated HTTP checks, persist latency history in PostgreSQL, and stream results via WebSockets.',
+      'BullMQ workers measure sub-millisecond HTTP latency, persist history in PostgreSQL, and push live WebSocket events.',
     badge: 'Live WebSocket Event',
     codeTitle: 'ws://api/ws · health-check:result',
     codeLines: [
@@ -84,7 +109,7 @@ const WORKFLOW_STEPS = [
     step: '03',
     title: 'Auto-Capture Incidents & Alert Safely',
     summary:
-      'Failures open an audit-logged incident automatically, dispatch HMAC-signed webhooks with retries, and resolve on recovery.',
+      'Outages open an audit-logged incident automatically, fire HMAC-signed webhooks with retries, and resolve on recovery.',
     badge: 'Signed Webhook Dispatch',
     codeTitle: 'X-Pulse-Signature: sha256=9f4c...e81b',
     codeLines: [
@@ -92,15 +117,24 @@ const WORKFLOW_STEPS = [
       '  "event": "incident:created",',
       '  "service": "Payments Gateway",',
       '  "cause": "HTTP 503 Service Unavailable",',
-      '  "startedAt": "2026-11-25T12:14:02Z",',
+      '  "startedAt": "2026-11-28T12:14:02Z",',
       '  "signatureVerified": true',
       '}',
     ],
   },
 ];
 
-const BENEFITS = [
+const BENEFITS: Array<{
+  kind: BenefitVisualKind;
+  ariaLabel: string;
+  icon: typeof Clock;
+  accent: string;
+  title: string;
+  description: string;
+}> = [
   {
+    kind: 'mttd',
+    ariaLabel: '2D Canvas timeline comparing 42 minute manual discovery versus under 60 second PulseStack detection',
     icon: Clock,
     accent: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/20',
     title: 'Detect Outages in Seconds',
@@ -108,6 +142,8 @@ const BENEFITS = [
       'Automated background workers spot slowdowns and 5xx outages immediately—cutting Mean Time to Detect without manual checks.',
   },
   {
+    kind: 'telemetry',
+    ariaLabel: '2D Canvas radial 99.98% SLA gauge and real-time latency sparkline',
     icon: Zap,
     accent: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
     title: 'Zero-Refresh Live Telemetry',
@@ -115,6 +151,8 @@ const BENEFITS = [
       'Watch real-time latency sparklines, operational SLA percentages, and incoming check logs update live over WebSockets.',
   },
   {
+    kind: 'webhook',
+    ariaLabel: '2D Canvas showing webhook payload signed with SHA-256 and exponential retry backoff',
     icon: Webhook,
     accent: 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20',
     title: 'Verifiable Webhook Delivery',
@@ -122,6 +160,8 @@ const BENEFITS = [
       'Send incident and recovery payloads to Slack, Discord, or custom APIs signed with HMAC-SHA256 and full delivery audit logs.',
   },
   {
+    kind: 'security',
+    ariaLabel: '2D Canvas showing 15 minute in-memory JWT paired with 7 day rotating refresh cookie',
     icon: Lock,
     accent: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
     title: 'Zero-Trust Auth & Isolation',
@@ -137,45 +177,50 @@ export function ProblemSolutionSection() {
       className="relative z-10 max-w-6xl mx-auto w-full px-6 py-16 border-t border-slate-800/70"
     >
       <div className="max-w-2xl mb-10">
-        <Badge variant="outline" className="mb-3 border-indigo-500/30 text-indigo-300 bg-indigo-500/10">
+        <Badge
+          variant="outline"
+          className="mb-3 border-indigo-500/30 text-indigo-300 bg-indigo-500/10"
+        >
           Problem &amp; Solution
         </Badge>
         <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-          Why teams outgrow manual scripts and fragile polling
+          See the difference as you scroll
         </h2>
         <p className="text-sm sm:text-base text-slate-400 mt-2 leading-relaxed">
-          PulseStack replaces ad-hoc cron scripts and blind spots with a fault-tolerant monitoring pipeline built for multi-tenant reliability.
+          Each 2D visualization below contrasts fragile manual monitoring on the left with PulseStack&apos;s automated architecture on the right.
         </p>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-6">
         {PROBLEM_SOLUTIONS.map((row) => (
           <div
-            key={row.problemTitle}
-            className="grid grid-cols-1 md:grid-cols-2 gap-4 rounded-2xl border border-slate-800/80 bg-slate-900/45 p-4 sm:p-5 transition-colors hover:border-slate-700/80"
+            key={row.variant}
+            className="rounded-2xl border border-slate-800/80 bg-slate-900/45 p-4 sm:p-5 space-y-4 transition-colors hover:border-slate-700/80"
           >
-            {/* Problem Side */}
-            <div className="rounded-xl border border-rose-500/20 bg-rose-950/15 p-4">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-rose-400 mb-1.5">
-                <XCircle className="h-4 w-4 flex-shrink-0" />
-                The Problem
-              </div>
-              <h3 className="text-base font-semibold text-white">{row.problemTitle}</h3>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
-                {row.problemDesc}
-              </p>
-            </div>
+            {/* Scroll-reactive 2D Canvas Visual Comparison */}
+            <ProblemSolutionSceneCanvas variant={row.variant} ariaLabel={row.ariaLabel} />
 
-            {/* Solution Side */}
-            <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/15 p-4">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-emerald-400 mb-1.5">
-                <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
-                PulseStack Solution
+            {/* Concise Side-by-Side Captions */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+              <div className="rounded-xl border border-rose-500/20 bg-rose-950/15 px-4 py-3">
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-rose-400 mb-1">
+                  <XCircle className="h-3.5 w-3.5 flex-shrink-0" />
+                  The Problem · {row.problemTitle}
+                </div>
+                <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  {row.problemDesc}
+                </p>
               </div>
-              <h3 className="text-base font-semibold text-white">{row.solutionTitle}</h3>
-              <p className="text-xs sm:text-sm text-slate-300 mt-1.5 leading-relaxed">
-                {row.solutionDesc}
-              </p>
+
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-950/15 px-4 py-3">
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-emerald-400 mb-1">
+                  <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0" />
+                  Solution · {row.solutionTitle}
+                </div>
+                <p className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+                  {row.solutionDesc}
+                </p>
+              </div>
             </div>
           </div>
         ))}
@@ -185,47 +230,56 @@ export function ProblemSolutionSection() {
 }
 
 export function WorkflowStepperSection() {
-  const [activeStep, setActiveStep] = useState(0);
-  const current = WORKFLOW_STEPS[activeStep] ?? WORKFLOW_STEPS[0];
+  const sectionRef = useRef<HTMLDivElement | null>(null);
+  const { activeStep: scrollStep } = useScrollProgress(sectionRef, { steps: 3, damping: 0.12 });
+  const [pinnedStep, setPinnedStep] = useState<number | null>(null);
+  const [viewMode, setViewMode] = useState<'visual' | 'json'>('visual');
+
+  const displayStep = pinnedStep ?? scrollStep;
+  const current = WORKFLOW_STEPS[displayStep] ?? WORKFLOW_STEPS[0];
 
   return (
     <section
       id="how-it-works"
+      ref={sectionRef}
       className="relative z-10 max-w-6xl mx-auto w-full px-6 py-16 border-t border-slate-800/70"
     >
       <div className="max-w-2xl mb-10">
-        <Badge variant="outline" className="mb-3 border-cyan-500/30 text-cyan-300 bg-cyan-500/10">
+        <Badge
+          variant="outline"
+          className="mb-3 border-cyan-500/30 text-cyan-300 bg-cyan-500/10"
+        >
           How It Works
         </Badge>
         <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-          From URL setup to live incident alerts in 3 steps
+          Scroll through the 3-step monitoring lifecycle
         </h2>
         <p className="text-sm sm:text-base text-slate-400 mt-2 leading-relaxed">
-          Select a step below to inspect the exact API contract, WebSocket event, and signed webhook payload PulseStack generates.
+          As you scroll, the sticky 2D stage animates from monitor scheduling to live WebSocket streaming and signed incident alerts—or click any step to pin it.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        {/* Step Selector List */}
-        <div className="lg:col-span-6 space-y-3">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: 3 Scroll-Tracked Story Steps */}
+        <div className="lg:col-span-5 space-y-4">
           {WORKFLOW_STEPS.map((item, idx) => {
-            const isSelected = idx === activeStep;
+            const isSelected = idx === displayStep;
             return (
               <button
                 key={item.step}
                 type="button"
-                onClick={() => setActiveStep(idx)}
+                onClick={() => setPinnedStep((prev) => (prev === idx ? null : idx))}
                 className={cn(
-                  'w-full text-left rounded-xl border p-4 transition-all duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 active:scale-[0.99]',
+                  'w-full text-left rounded-xl border p-5 transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 active:scale-[0.99]',
                   isSelected
-                    ? 'border-indigo-500/60 bg-indigo-950/30 shadow-lg shadow-indigo-950/20'
-                    : 'border-slate-800/80 bg-slate-900/50 hover:bg-slate-900/80 hover:border-slate-700'
+                    ? 'border-indigo-500/70 bg-indigo-950/35 shadow-lg shadow-indigo-950/25'
+                    : 'border-slate-800/80 bg-slate-900/45 opacity-80 hover:opacity-100 hover:bg-slate-900/80 hover:border-slate-700'
                 )}
               >
                 <div className="flex items-start gap-3.5">
                   <span
                     className={cn(
-                      'font-mono text-xs font-bold px-2 py-1 rounded-md border flex-shrink-0',
+                      'font-mono text-xs font-bold px-2.5 py-1 rounded-md border flex-shrink-0',
                       isSelected
                         ? 'bg-indigo-600 text-white border-indigo-500'
                         : 'bg-slate-800/80 text-slate-400 border-slate-700'
@@ -233,11 +287,18 @@ export function WorkflowStepperSection() {
                   >
                     {item.step}
                   </span>
-                  <div>
-                    <h3 className="text-sm sm:text-base font-semibold text-white">
-                      {item.title}
-                    </h3>
-                    <p className="text-xs sm:text-sm text-slate-400 mt-1 leading-relaxed">
+                  <div className="min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="text-sm sm:text-base font-semibold text-white">
+                        {item.title}
+                      </h3>
+                      {pinnedStep === idx && (
+                        <span className="text-[10px] font-mono text-indigo-300 bg-indigo-500/15 border border-indigo-500/30 rounded px-1.5 py-0.5">
+                          Pinned
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
                       {item.summary}
                     </p>
                   </div>
@@ -245,28 +306,84 @@ export function WorkflowStepperSection() {
               </button>
             );
           })}
+
+          {pinnedStep !== null && (
+            <button
+              type="button"
+              onClick={() => setPinnedStep(null)}
+              className="text-xs font-mono text-indigo-400 hover:text-indigo-300 underline underline-offset-4 cursor-pointer"
+            >
+              Resume automatic scroll sync
+            </button>
+          )}
         </div>
 
-        {/* Live Payload Preview Card */}
-        <div className="lg:col-span-6 rounded-2xl border border-slate-800 bg-slate-950/90 flex flex-col justify-between overflow-hidden shadow-xl">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/80 bg-slate-900/70">
+        {/* Right Column: Sticky 2D Canvas Stage + Optional JSON Contract View */}
+        <div className="lg:col-span-7 lg:sticky lg:top-24 rounded-2xl border border-slate-800 bg-slate-950/90 flex flex-col justify-between overflow-hidden shadow-2xl">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-slate-800/80 bg-slate-900/70">
             <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
-              <Terminal className="h-3.5 w-3.5 text-indigo-400" />
-              <span>{current.codeTitle}</span>
+              {viewMode === 'visual' ? (
+                <Eye className="h-3.5 w-3.5 text-cyan-400" />
+              ) : (
+                <Terminal className="h-3.5 w-3.5 text-indigo-400" />
+              )}
+              <span>{viewMode === 'visual' ? current.badge : current.codeTitle}</span>
             </div>
-            <Badge variant="default" className="text-[10px]">
-              {current.badge}
-            </Badge>
+
+            <div
+              className="inline-flex rounded-lg border border-slate-800 bg-slate-950 p-0.5"
+              role="tablist"
+              aria-label="Workflow preview mode"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={viewMode === 'visual'}
+                onClick={() => setViewMode('visual')}
+                className={cn(
+                  'px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer',
+                  viewMode === 'visual'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                )}
+              >
+                Visual Stage
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={viewMode === 'json'}
+                onClick={() => setViewMode('json')}
+                className={cn(
+                  'px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer',
+                  viewMode === 'json'
+                    ? 'bg-indigo-600 text-white'
+                    : 'text-slate-400 hover:text-white'
+                )}
+              >
+                Inspect JSON
+              </button>
+            </div>
           </div>
 
-          <pre className="p-5 text-xs sm:text-sm font-mono text-slate-200 overflow-x-auto leading-relaxed flex-1">
-            <code>{current.codeLines.join('\n')}</code>
-          </pre>
+          {viewMode === 'visual' ? (
+            <WorkflowScrollCanvas
+              scrollContainerRef={sectionRef}
+              activeStep={scrollStep}
+              pinnedStep={pinnedStep}
+            />
+          ) : (
+            <pre className="p-6 min-h-[250px] sm:min-h-[320px] text-xs sm:text-sm font-mono text-slate-200 overflow-x-auto leading-relaxed">
+              <code>{current.codeLines.join('\n')}</code>
+            </pre>
+          )}
 
           <div className="px-4 py-3 border-t border-slate-800/80 bg-slate-900/40 flex items-center justify-between text-xs text-slate-400">
             <span className="flex items-center gap-1.5">
               <Radio className="h-3.5 w-3.5 text-emerald-400" />
-              Validated end-to-end with Zod &amp; TypeScript
+              {pinnedStep === null
+                ? 'Synced to your scroll position'
+                : 'Step pinned — click again to resume scroll sync'}
             </span>
             <span className="font-mono text-slate-500">Step {current.step} / 03</span>
           </div>
@@ -283,18 +400,21 @@ export function BenefitsSection() {
       className="relative z-10 max-w-6xl mx-auto w-full px-6 py-16 border-t border-slate-800/70"
     >
       <div className="max-w-2xl mb-10">
-        <Badge variant="outline" className="mb-3 border-emerald-500/30 text-emerald-300 bg-emerald-500/10">
+        <Badge
+          variant="outline"
+          className="mb-3 border-emerald-500/30 text-emerald-300 bg-emerald-500/10"
+        >
           User Benefits
         </Badge>
         <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
           Built for clarity, speed, and production trust
         </h2>
         <p className="text-sm sm:text-base text-slate-400 mt-2 leading-relaxed">
-          Whether you are monitoring microservices or evaluating enterprise TypeScript architecture, every layer gives immediate feedback.
+          Every benefit below visualizes how PulseStack protects uptime, eliminates manual refreshes, and secures multi-tenant data.
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         {BENEFITS.map((benefit) => {
           const Icon = benefit.icon;
           return (
@@ -302,16 +422,21 @@ export function BenefitsSection() {
               key={benefit.title}
               className="rounded-xl border border-slate-800/80 bg-slate-900/55 p-5 transition-all duration-150 hover:border-slate-700 hover:bg-slate-900/80"
             >
-              <div
-                className={cn(
-                  'h-10 w-10 rounded-lg border flex items-center justify-center mb-3.5',
-                  benefit.accent
-                )}
-              >
-                <Icon className="h-5 w-5" />
+              <BenefitVisualCanvas kind={benefit.kind} ariaLabel={benefit.ariaLabel} />
+
+              <div className="flex items-center gap-3 mb-2">
+                <div
+                  className={cn(
+                    'h-8 w-8 rounded-lg border flex items-center justify-center flex-shrink-0',
+                    benefit.accent
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                </div>
+                <h3 className="text-base font-semibold text-white">{benefit.title}</h3>
               </div>
-              <h3 className="text-base font-semibold text-white">{benefit.title}</h3>
-              <p className="text-xs sm:text-sm text-slate-400 mt-1.5 leading-relaxed">
+
+              <p className="text-xs sm:text-sm text-slate-400 leading-relaxed">
                 {benefit.description}
               </p>
             </div>

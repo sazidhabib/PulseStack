@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useCallback, useSyncExternalStore } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -12,6 +12,14 @@ import {
   Zap,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  drawDotGrid,
+  drawGlowingDot,
+  drawRoundedRect,
+  evalCubicBezier,
+  syncHiDPICanvas,
+  usePrefersReducedMotion,
+} from '@/components/home/canvas-utils';
 
 export type SimulationScenario = 'healthy' | 'outage' | 'isolation';
 
@@ -304,51 +312,6 @@ function getScenarioGraph(
   return { nodes, edges };
 }
 
-function evalCubicBezier(
-  p0: { x: number; y: number },
-  p1: { x: number; y: number },
-  p2: { x: number; y: number },
-  p3: { x: number; y: number },
-  t: number
-) {
-  const u = 1 - t;
-  const tt = t * t;
-  const uu = u * u;
-  const uuu = uu * u;
-  const ttt = tt * t;
-
-  return {
-    x: uuu * p0.x + 3 * uu * t * p1.x + 3 * u * tt * p2.x + ttt * p3.x,
-    y: uuu * p0.y + 3 * uu * t * p1.y + 3 * u * tt * p2.y + ttt * p3.y,
-  };
-}
-
-function drawRoundedRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number
-) {
-  ctx.beginPath();
-  ctx.roundRect(x, y, w, h, r);
-}
-
-function subscribeReducedMotion(callback: () => void) {
-  const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-  mq.addEventListener('change', callback);
-  return () => mq.removeEventListener('change', callback);
-}
-
-function getReducedMotionSnapshot() {
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
-
-function getReducedMotionServerSnapshot() {
-  return false;
-}
-
 export function TelemetryCanvas() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -356,11 +319,7 @@ export function TelemetryCanvas() {
   const [scenario, setScenario] = useState<SimulationScenario>('healthy');
   const [isOutageActive, setIsOutageActive] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
-  const prefersReducedMotion = useSyncExternalStore(
-    subscribeReducedMotion,
-    getReducedMotionSnapshot,
-    getReducedMotionServerSnapshot
-  );
+  const prefersReducedMotion = usePrefersReducedMotion();
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string>('worker');
 
@@ -427,13 +386,7 @@ export function TelemetryCanvas() {
       ctx.clearRect(0, 0, width, height);
 
       // 1. Subtle technical dot grid background
-      ctx.fillStyle = 'rgba(148, 163, 184, 0.08)';
-      const gridStep = 24;
-      for (let gx = 16; gx < width; gx += gridStep) {
-        for (let gy = 16; gy < stageHeight; gy += gridStep) {
-          ctx.fillRect(gx, gy, 1.2, 1.2);
-        }
-      }
+      drawDotGrid(ctx, width, stageHeight, 24, 0.08);
 
       // 2. Multi-tenant firewall divider when in isolation mode
       if (scenario === 'isolation') {
@@ -522,21 +475,7 @@ export function TelemetryCanvas() {
         const p2 = { x: p3.x - dx, y: p3.y };
 
         const pos = evalCubicBezier(p0, p1, p2, p3, pkt.t);
-
-        // Glow halo
-        const grad = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, pkt.radius * 3.2);
-        grad.addColorStop(0, `${pkt.color}cc`);
-        grad.addColorStop(1, `${pkt.color}00`);
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(pos.x, pos.y, pkt.radius * 3.2, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Core packet dot
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(pos.x, pos.y, pkt.radius * 0.65, 0, Math.PI * 2);
-        ctx.fill();
+        drawGlowingDot(ctx, pos.x, pos.y, pkt.radius, pkt.color);
       });
 
       // 6. Draw Nodes as clean telemetry cards
@@ -654,16 +593,9 @@ export function TelemetryCanvas() {
 
     const syncSize = () => {
       const rect = container.getBoundingClientRect();
-      const width = Math.max(300, Math.floor(rect.width));
-      const height = width < 480 ? 320 : 370;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      sizeRef.current = { width, height };
+      const targetW = Math.max(300, Math.floor(rect.width));
+      const targetH = targetW < 480 ? 320 : 370;
+      sizeRef.current = syncHiDPICanvas(canvas, ctx, targetW, targetH);
     };
 
     syncSize();
